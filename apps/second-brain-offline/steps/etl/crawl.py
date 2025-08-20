@@ -19,7 +19,10 @@ def crawl(
     Returns:
         list[Document]: List containing original documents plus newly crawled child documents.
     """
+    # __init__ would be called automatically when the step is executed
     crawler = Crawl4AICrawler(max_concurrent_requests=max_workers)
+    # __call__ is the method that will be executed when the step is run
+    # crawl each document's child URLs
     child_pages = crawler(documents)
 
     augmented_pages = documents.copy()

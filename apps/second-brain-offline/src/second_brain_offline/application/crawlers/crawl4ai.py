@@ -36,6 +36,8 @@ class Crawl4AICrawler:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
+            # only 1 event loop is allowed per process
+            # create a new event loop if not already running
             return asyncio.run(self.__crawl_batch(pages))
         else:
             return loop.run_until_complete(self.__crawl_batch(pages))
@@ -130,6 +132,8 @@ class Crawl4AICrawler:
                 title = ""
 
             document_id = utils.generate_random_hex(length=32)
+
+            logger.debug(f"Successfully crawled {url}")
 
             return Document(
                 id=document_id,

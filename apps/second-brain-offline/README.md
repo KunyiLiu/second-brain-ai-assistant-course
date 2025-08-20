@@ -246,6 +246,8 @@ Running criteria:
 
 **OR** in case you want to avoid any costs or waiting times, you can use our pre-computed dataset available on Hugging Face, which is already set as the default value in the required ZenML configs: [pauliusztin/second_brain_course_summarization_task](https://huggingface.co/datasets/pauliusztin/second_brain_course_summarization_task).
 
+**OR** Use the free Gemini AI API to generate the fine-tuning dataset. I have updated the summarization_agent_model_id to `gemini/gemini-2.0-flash` on [configs](./configs/generate_dataset.yaml).
+
 ## Module 4: Fine-tuning and Deploying Summarization LLM
 
 ### Fine-tuning and Evaluating the Summarization LLM

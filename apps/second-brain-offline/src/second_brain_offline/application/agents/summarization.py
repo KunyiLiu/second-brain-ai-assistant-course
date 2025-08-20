@@ -6,6 +6,7 @@ from litellm import acompletion
 from loguru import logger
 from tqdm.asyncio import tqdm
 
+from second_brain_offline.config import settings
 from second_brain_offline.domain import Document
 
 
@@ -53,13 +54,15 @@ Return the document in markdown format regardless of the original format.
         self.max_concurrent_requests = max_concurrent_requests
 
     def __call__(
-        self, documents: Document | list[Document], temperature: float = 0.0
+        self, documents: Document | list[Document], temperature: float = 0.0,
+        top_p: float = 1.0
     ) -> Document | list[Document]:
         """Process single document or batch of documents for summarization.
 
         Args:
             documents: Single Document or list of Documents to summarize.
             temperature: Temperature for the summarization model.
+            top_p: Top-p sampling parameter for the summarization model.
         Returns:
             Document | list[Document]: Processed document(s) with summaries.
         """
@@ -70,22 +73,24 @@ Return the document in markdown format regardless of the original format.
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            results = asyncio.run(self.__summarize_batch(docs_list, temperature))
+            results = asyncio.run(self.__summarize_batch(docs_list, temperature, top_p))
         else:
             results = loop.run_until_complete(
-                self.__summarize_batch(docs_list, temperature)
+                self.__summarize_batch(docs_list, temperature, top_p)
             )
 
         return results[0] if is_single_document else results
 
     async def __summarize_batch(
-        self, documents: list[Document], temperature: float = 0.0
+        self, documents: list[Document], temperature: float = 0.0,
+        top_p: float = 1.0
     ) -> list[Document]:
         """Asynchronously summarize multiple documents.
 
         Args:
             documents: List of documents to summarize.
             temperature: Temperature for the summarization model.
+            top_p: Top-p sampling parameter for the summarization model.
         Returns:
             list[Document]: Documents with generated summaries.
         """
@@ -98,7 +103,7 @@ Return the document in markdown format regardless of the original format.
         )
 
         summarized_documents = await self.__process_batch(
-            documents, temperature, await_time_seconds=7
+            documents, temperature, await_time_seconds=20, top_p=top_p
         )
         documents_with_summaries = [
             doc for doc in summarized_documents if doc.summary is not None
@@ -111,7 +116,7 @@ Return the document in markdown format regardless of the original format.
                 f"Retrying {len(documents_without_summaries)} failed documents with increased await time..."
             )
             retry_results = await self.__process_batch(
-                documents_without_summaries, temperature, await_time_seconds=20
+                documents_without_summaries, temperature, await_time_seconds=40, top_p=top_p
             )
             documents_with_summaries += retry_results
 
@@ -134,7 +139,7 @@ Return the document in markdown format regardless of the original format.
         return documents_with_summaries
 
     async def __process_batch(
-        self, documents: list[Document], temperature: float, await_time_seconds: int
+        self, documents: list[Document], temperature: float, await_time_seconds: int, top_p: float
     ) -> list[Document]:
         """Process a batch of documents with specified await time.
 
@@ -142,13 +147,15 @@ Return the document in markdown format regardless of the original format.
             documents: List of documents to summarize.
             temperature: Temperature for the summarization model.
             await_time_seconds: Time to wait between requests.
+            top_p: Top-p sampling parameter for the summarization model.
         Returns:
             list[Document]: Processed documents with summaries.
         """
         semaphore = asyncio.Semaphore(self.max_concurrent_requests)
         tasks = [
             self.__summarize(
-                document, semaphore, temperature, await_time_seconds=await_time_seconds
+                document, semaphore, temperature, await_time_seconds=await_time_seconds,
+                top_p=top_p
             )
             for document in documents
         ]
@@ -170,6 +177,7 @@ Return the document in markdown format regardless of the original format.
         semaphore: asyncio.Semaphore | None = None,
         temperature: float = 0.0,
         await_time_seconds: int = 2,
+        top_p: float = 1.0
     ) -> Document:
         """Generate a summary for a single document.
 
@@ -177,6 +185,8 @@ Return the document in markdown format regardless of the original format.
             document: The Document object to summarize.
             semaphore: Optional semaphore for controlling concurrent requests.
             temperature: Temperature for the summarization model.
+            await_time_seconds: Time to wait between requests for rate limiting.
+            top_p: Top-p sampling parameter for the summarization model.
         Returns:
             Document | None: Document with generated summary or None if failed.
         """
@@ -194,9 +204,15 @@ Return the document in markdown format regardless of the original format.
                                 characters=self.max_characters, content=document.content
                             ),
                         },
+                        {
+                            "role": "user",
+                            "content": document.content,  # put the actual doc text here
+                        },
                     ],
                     stream=False,
                     temperature=temperature,
+                    top_p=top_p,
+                    api_key=settings.OPENAI_API_KEY
                 )
                 await asyncio.sleep(await_time_seconds)  # Rate limiting
 

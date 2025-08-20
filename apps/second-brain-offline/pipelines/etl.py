@@ -36,7 +36,7 @@ def etl(
         mock=quality_agent_mock,
         max_workers=max_workers,
     )
-
+    # used in the later to_S3 step, uploading the whole local folder to S3
     save_documents_to_disk(documents=enhanced_documents, output_dir=crawled_data_dir)
     if to_s3:
         upload_to_s3(
