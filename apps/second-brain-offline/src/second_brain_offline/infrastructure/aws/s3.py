@@ -28,7 +28,6 @@ class S3Client:
             region (str, optional): AWS region. Defaults to AWS_DEFAULT_REGION or AWS_REGION env var,
                 or 'us-east-1'.
         """
-
         self.region = region
         self.bucket_name = bucket_name
         self.no_sign_request = no_sign_request
@@ -136,6 +135,7 @@ class S3Client:
 
             # Extract the zip file
             with zipfile.ZipFile(temp_zip.name, "r") as zipf:
+                # If files already exist, we will overwrite them
                 zipf.extractall(local_path)
 
         # Clean up temporary zip file

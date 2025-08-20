@@ -1,5 +1,6 @@
 import copy
 from typing import Callable
+import numpy as np
 
 from loguru import logger
 
@@ -136,15 +137,15 @@ class SummarizationDatasetGenerator:
     def __augmented_summarization_loop(
         self, documents: list[Document], loops: int = 3
     ) -> list[Document]:
-        """Performs multiple summarization passes with increasing temperature.
+        """Performs multiple summarization passes with different temperature and top_p combinations.
 
         Args:
             documents: List of documents to summarize.
-            loops: Number of summarization iterations with different temperatures.
+            loops: Number of summarization iterations with different temperatures and top_p.
 
         Returns:
             List of documents with generated summaries, including multiple versions
-            of each document summarized with different temperatures.
+            of each document summarized with different temperature and top_p combinations.
         """
 
         summarization_agent = SummarizationAgent(
@@ -153,16 +154,23 @@ class SummarizationDatasetGenerator:
             max_concurrent_requests=self.max_workers,
             mock=self.mock,
         )
+
+        def build_param_grid(n_loops: int):
+            temperatures = np.linspace(0.0, 0.5, n_loops, endpoint=False)
+            top_ps = np.linspace(0.7, 1.0, n_loops, endpoint=False)
+
+            return list(zip(temperatures, top_ps))
+
         augmented_documents = []
-        for i in range(loops):
-            temperature = i * 0.5 / loops  # 0.0 to 0.5
+        param_grid = build_param_grid(loops)
+        for i, (temperature, top_p) in enumerate(param_grid):
             logger.info(
-                f"Loop {i + 1} of {loops} - Summarizing documents with temperature {temperature}"
+                f"Loop {i + 1} of {loops} - Summarizing documents with temperature {temperature} and top_p {top_p}"
             )
 
             copied_documents = copy.deepcopy(documents)
             summarized_documents = summarization_agent(
-                copied_documents, temperature=temperature
+                copied_documents, temperature=temperature, top_p=top_p
             )
             valid_summarized_documents = [
                 doc for doc in summarized_documents if doc.summary is not None

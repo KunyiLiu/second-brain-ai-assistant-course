@@ -141,6 +141,7 @@ def main(
             f"Config file not found: {pipeline_args['config_path']}"
         )
         pipeline_args["run_name"] = f"etl_run_{dt.now().strftime('%Y_%m_%d_%H_%M_%S')}"
+
         etl.with_options(**pipeline_args)(**run_args)
 
     if run_etl_precomputed_pipeline:
